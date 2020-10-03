@@ -17,4 +17,6 @@ If you don't run it as sudo, then you can pre install the following:
 * curl
 * php7.4-cli
 
+# Disclaimer
 
+This is currently a WIP. It's not yet tested in a variety of environments, and will definetely have bugs. If you're interested in contributing, please open up an issue or pull request.
