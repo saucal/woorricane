@@ -18,12 +18,11 @@ function get_json() {
 
 get() {
   local DATA
-  DATA=$(curl -o "${LAST_REQ_FILE}" -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" -sSL -D - \
+  DATA=$(curl -o "${LAST_REQ_FILE}" -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" -sSL -D "${LAST_REQ_HEADERS}" \
     --connect-timeout 400 \
     --max-time 400 \
     --retry 0 "$@" 2>&1)
-  echo "${DATA}" > "${LAST_REQ_HEADERS}"
-  echo "${DATA}" > "${LAST_REQ_FULL}"
+  cat "${LAST_REQ_HEADERS}" > "${LAST_REQ_FULL}"
   cat "${LAST_REQ_FILE}" >> "${LAST_REQ_FULL}"
   cat "${LAST_REQ_FULL}"
 }
