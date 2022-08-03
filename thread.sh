@@ -1,5 +1,9 @@
 #!/bin/bash
 
+LOG_PATH="$PWD/logs/t-$CURRENT_THREAD"
+rm -rf "$LOG_PATH"
+mkdir -p "$LOG_PATH"
+
 COOKIE_JAR=$(mktemp)
 
 set -o history -o histexpand
@@ -27,7 +31,7 @@ get() {
 function step_1() {
   # home
   get "${HOME_URL}" \
-    >> curl-step-1.log
+    >> "$LOG_PATH/curl-step-1.log"
 }
 
 function step_2() {
@@ -37,7 +41,7 @@ function step_2() {
     -X 'POST' \
     -H "Referer: ${HOME_URL}" \
     --data-raw "product_id=${PRODUCT_ID}&quantity=${QTY}" \
-    >> curl-step-2.log
+    >> "$LOG_PATH/curl-step-2.log"
 
   HAS_ERR=$(cat "${LAST_REQ_FILE}" | get_json "error")
   if [ -n "$HAS_ERR" ]; then
@@ -48,14 +52,14 @@ function step_2() {
 function step_3() {
   # cart page
   get "${CART_URL}" \
-    >> curl-step-3.log
+    >> "$LOG_PATH/curl-step-3.log"
 }
 
 function step_4() {
   # get nonces on the checkout page
   get "${CHECKOUT_URL}" \
     -H "Referer: ${CART_URL}" \
-    >> curl-step-4.log
+    >> "$LOG_PATH/curl-step-4.log"
 
   CHECKOUT_NONCE=$(grep -oP ' name="woocommerce-process-checkout-nonce" value="\K.+?(?=")' "${LAST_REQ_FILE}")
   CHECKOUT_REFERER=$(grep -oP ' name="_wp_http_referer" value="\K.+?(?=")' "${LAST_REQ_FILE}")
@@ -69,7 +73,7 @@ function step_5() {
     --data-urlencode "woocommerce-process-checkout-nonce=${CHECKOUT_NONCE}" \
     --data-urlencode "_wp_http_referer=${CHECKOUT_REFERER}" \
     --data-raw "billing_first_name=Mai+K&billing_last_name=Love&billing_company=&billing_country=US&billing_address_1=4876++Hillcrest+Circle&billing_address_2=&billing_city=Crystal&billing_state=MN&billing_postcode=55429&billing_phone=218-404-4099&billing_email=bm0kig52zgp%40temporary-mail.net&order_comments=&payment_method=dummy" \
-    >> curl-step-5.log
+    >> "$LOG_PATH/curl-step-5.log"
 }
 
 function checkout_flow() {

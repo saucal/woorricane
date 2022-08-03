@@ -102,10 +102,12 @@ echo "Rate: $rate calls added / second"
 echo "Max: $max total users"
 
 rm -f curl-step-*.log
+export CURRENT_THREAD
 while true; do
+  USERS=$(( USERS + 1 ));
+  CURRENT_THREAD="$USERS"
   bash "thread.sh" & # 2>/dev/null 1>/dev/null &
   CHILD_PROCS+=("$!")
-  USERS=$(( USERS + 1 ));
   echo "${USERS}" > "$LAUNCHED_PIPE"
   sleep "${SLEEP}"
   LIMIT=$(( USERS >= MAX_USERS ));
