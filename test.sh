@@ -46,10 +46,16 @@ done
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
 export PRODUCT_ID
+URL="${URL%/}"
+URL="${URL#/}"
+CART="${CHECKOUT%/}"
+CART="${CHECKOUT#/}"
+CHECKOUT="${CHECKOUT%/}"
+CHECKOUT="${CHECKOUT#/}"
 export HOME_URL="${URL}"
 export AJAX_ADD_TO_CART_URL="${URL}/?wc-ajax=add_to_cart"
-export CART_URL="${URL}/${CART}"
-export CHECKOUT_URL="${URL}/${CHECKOUT}"
+export CART_URL="${URL}/${CART}/"
+export CHECKOUT_URL="${URL}/${CHECKOUT}/"
 export AJAX_CHECKOUT_URL="${URL}/?wc-ajax=checkout"
 
 CHILD_PROCS=()
