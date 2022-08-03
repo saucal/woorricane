@@ -47,7 +47,7 @@ function step_1() {
 }
 
 function step_2() {
-  QTY=$((RANDOM % 10))
+  QTY="1"
   # add to cart
   get "${AJAX_ADD_TO_CART_URL}" \
     -X 'POST' \
