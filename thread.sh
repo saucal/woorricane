@@ -10,6 +10,7 @@ set -o history -o histexpand
 
 LAST_REQ_FILE=$(mktemp)
 LAST_REQ_HEADERS=$(mktemp)
+LAST_REQ_RESPONSE_HEADERS=$(mktemp)
 LAST_REQ_FULL=$(mktemp)
 
 function get_json() {
@@ -18,12 +19,24 @@ function get_json() {
 
 get() {
   local DATA
-  DATA=$(curl -o "${LAST_REQ_FILE}" -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" -sSL -D "${LAST_REQ_HEADERS}" \
+  DATA=$(curl -o "${LAST_REQ_FILE}" -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" -sSL -D "${LAST_REQ_RESPONSE_HEADERS}" \
     --connect-timeout 400 \
     --max-time 400 \
-    --retry 0 "$@" 2>&1)
-  cat "${LAST_REQ_HEADERS}" > "${LAST_REQ_FULL}"
-  cat "${LAST_REQ_FILE}" >> "${LAST_REQ_FULL}"
+    --trace-ascii - \
+    --retry 0 "$@" 2>&1 | awk '/=> Send header,/{flag=1; next} /== Info:/{flag=0} flag' | sed '/^=> Send data,.*$/d' | sed 's/^[[:xdigit:]]*: //g')
+
+  {
+    echo "${DATA}"
+    echo ""
+  } > "${LAST_REQ_HEADERS}"
+
+  {
+    cat "${LAST_REQ_HEADERS}"
+    cat "${LAST_REQ_RESPONSE_HEADERS}"
+    cat "${LAST_REQ_FILE}"
+    echo ""
+  } > "${LAST_REQ_FULL}"
+  
   cat "${LAST_REQ_FULL}"
 }
 
