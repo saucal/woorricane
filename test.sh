@@ -72,8 +72,9 @@ function monitor() {
   local LAUNCHED
 
   LAUNCHED=$(cat "$LAUNCHED_PIPE")
-  FINISHED=$(stat --printf="%s" "$FINISHED_PIPE")
-  ACTIVE=$((${LAUNCHED} - ${FINISHED}));
+  FINISHED=$(wc -c < "${FINISHED_PIPE}")
+  FINISHED=$((FINISHED))
+  ACTIVE=$((LAUNCHED - FINISHED));
 
   echo -ne "\033[2K\r"
   echo -ne "Launched: ${LAUNCHED}/${MAX_USERS} - Active: ${ACTIVE}"
@@ -104,10 +105,10 @@ rm -f curl-step-*.log
 while true; do
   bash "thread.sh" & # 2>/dev/null 1>/dev/null &
   CHILD_PROCS+=("$!")
-  USERS=$(( "${USERS}" + 1 ));
+  USERS=$(( USERS + 1 ));
   echo "${USERS}" > "$LAUNCHED_PIPE"
   sleep "${SLEEP}"
-  LIMIT=$(( "${USERS}" >= "${MAX_USERS}" ));
+  LIMIT=$(( USERS >= MAX_USERS ));
   if [ $LIMIT == "1" ]; then
     break;
   fi
