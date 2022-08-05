@@ -76,6 +76,8 @@ FINISHED_PIPE=$(mktemp)
 
 function monitor() {
   local LAUNCHED
+  local FINISHED
+  local ACTIVE
 
   LAUNCHED=$(wc -c < "${LAUNCHED_PIPE}")
   LAUNCHED=$((LAUNCHED))
