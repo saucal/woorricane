@@ -107,6 +107,9 @@ echo "Ramp up: $step minutes"
 echo "Rate: $rate calls added / second"
 echo "Max: $max total users"
 
+LOG_PATH="$PWD/logs"
+rm -rf "$LOG_PATH"
+
 rm -f curl-step-*.log
 export CURRENT_THREAD
 while true; do
