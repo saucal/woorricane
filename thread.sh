@@ -22,6 +22,8 @@ function run() {
   STEP=$(( STEP + 1 ))
 
   "$1" > "$LOG_PATH/curl-step-$STEP.log"
+  RET_CODE="$?"
+  return "$RET_CODE"
 }
 
 get() {
