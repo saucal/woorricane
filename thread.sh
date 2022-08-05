@@ -75,7 +75,6 @@ function step_4() {
 
   CHECKOUT_NONCE=$(grep -oP ' name="woocommerce-process-checkout-nonce" value="\K.+?(?=")' "${LAST_REQ_FILE}")
   CHECKOUT_REFERER=$(grep -oP ' name="_wp_http_referer" value="\K.+?(?=")' "${LAST_REQ_FILE}")
-  ORDER_REVIEW_NONCE=$(grep -oP '"update_order_review_nonce":"\K.+?(?=")' "${LAST_REQ_FILE}")
 }
 
 function step_5() {
