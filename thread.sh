@@ -12,9 +12,16 @@ LAST_REQ_FILE=$(mktemp)
 LAST_REQ_HEADERS=$(mktemp)
 LAST_REQ_RESPONSE_HEADERS=$(mktemp)
 LAST_REQ_FULL=$(mktemp)
+STEP=0
 
 function get_json() {
   php -r "try{ \$json = json_decode(file_get_contents('php://stdin'), true ); if( isset( \$json ) && isset( \$json[\$argv[1]] ) ) { echo is_scalar(\$json[\$argv[1]]) ? \$json[\$argv[1]] : json_encode(\$json[\$argv[1]]); } } catch( Exception \$e ) {}" "$@"
+}
+
+function run() {
+  STEP=$(( STEP + 1 ))
+
+  "$1" > "$LOG_PATH/curl-step-$STEP.log"
 }
 
 get() {
@@ -42,8 +49,7 @@ get() {
 
 function step_1() {
   # home
-  get "${HOME_URL}" \
-    >> "$LOG_PATH/curl-step-1.log"
+  get "${HOME_URL}"
 }
 
 function step_2() {
@@ -52,8 +58,7 @@ function step_2() {
   get "${AJAX_ADD_TO_CART_URL}" \
     -X 'POST' \
     -H "Referer: ${HOME_URL}" \
-    --data-raw "product_id=${PRODUCT_ID}&quantity=${QTY}" \
-    >> "$LOG_PATH/curl-step-2.log"
+    --data-raw "product_id=${PRODUCT_ID}&quantity=${QTY}"
 
   HAS_ERR=$(get_json "error" < "${LAST_REQ_FILE}")
   if [ -n "$HAS_ERR" ]; then
@@ -63,15 +68,13 @@ function step_2() {
 
 function step_3() {
   # cart page
-  get "${CART_URL}" \
-    >> "$LOG_PATH/curl-step-3.log"
+  get "${CART_URL}"
 }
 
 function step_4() {
   # get nonces on the checkout page
   get "${CHECKOUT_URL}" \
-    -H "Referer: ${CART_URL}" \
-    >> "$LOG_PATH/curl-step-4.log"
+    -H "Referer: ${CART_URL}"
 
   CHECKOUT_NONCE=$(grep -oP ' name="woocommerce-process-checkout-nonce" value="\K.+?(?=")' "${LAST_REQ_FILE}")
   CHECKOUT_REFERER=$(grep -oP ' name="_wp_http_referer" value="\K.+?(?=")' "${LAST_REQ_FILE}")
@@ -83,14 +86,13 @@ function step_5() {
     -H "Referer: ${CHECKOUT_URL}" \
     --data-urlencode "woocommerce-process-checkout-nonce=${CHECKOUT_NONCE}" \
     --data-urlencode "_wp_http_referer=${CHECKOUT_REFERER}" \
-    --data-raw "billing_first_name=Mai+K&billing_last_name=Love&billing_company=&billing_country=US&billing_address_1=4876++Hillcrest+Circle&billing_address_2=&billing_city=Crystal&billing_state=MN&billing_postcode=55429&billing_phone=218-404-4099&billing_email=bm0kig52zgp%40temporary-mail.net&order_comments=&payment_method=dummy" \
-    >> "$LOG_PATH/curl-step-5.log"
+    --data-raw "billing_first_name=Mai+K&billing_last_name=Love&billing_company=&billing_country=US&billing_address_1=4876++Hillcrest+Circle&billing_address_2=&billing_city=Crystal&billing_state=MN&billing_postcode=55429&billing_phone=218-404-4099&billing_email=bm0kig52zgp%40temporary-mail.net&order_comments=&payment_method=dummy"
 }
 
 function checkout_flow() {
 
-  step_1
-  step_2
+  run step_1
+  run step_2
 
   HAS_ERR="$?"
 
@@ -98,11 +100,11 @@ function checkout_flow() {
     return;
   fi
 
-  step_3
+  run step_3
 
-  step_4
+  run step_4
 
-  step_5
+  run step_5
 
 }
 
