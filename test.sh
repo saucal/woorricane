@@ -77,7 +77,8 @@ FINISHED_PIPE=$(mktemp)
 function monitor() {
   local LAUNCHED
 
-  LAUNCHED=$(cat "$LAUNCHED_PIPE")
+  LAUNCHED=$(wc -c < "${LAUNCHED_PIPE}")
+  LAUNCHED=$((LAUNCHED))
   FINISHED=$(wc -c < "${FINISHED_PIPE}")
   FINISHED=$((FINISHED))
   ACTIVE=$((LAUNCHED - FINISHED));
@@ -117,7 +118,7 @@ while true; do
   CURRENT_THREAD="$USERS"
   bash "thread.sh" & # 2>/dev/null 1>/dev/null &
   CHILD_PROCS+=("$!")
-  echo "${USERS}" > "$LAUNCHED_PIPE"
+  echo -n '0' >> "${LAUNCHED_PIPE}"
   sleep "${SLEEP}"
   LIMIT=$(( USERS >= MAX_USERS ));
   if [ $LIMIT == "1" ]; then
