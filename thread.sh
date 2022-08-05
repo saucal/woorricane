@@ -55,7 +55,7 @@ function step_2() {
     --data-raw "product_id=${PRODUCT_ID}&quantity=${QTY}" \
     >> "$LOG_PATH/curl-step-2.log"
 
-  HAS_ERR=$(cat "${LAST_REQ_FILE}" | get_json "error")
+  HAS_ERR=$(get_json "error" < "${LAST_REQ_FILE}")
   if [ -n "$HAS_ERR" ]; then
     return 1;
   fi
