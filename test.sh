@@ -178,6 +178,13 @@ while true; do
   fi
 done
 
+while true; do
+  if [ "$(step_active 5)" == "$MAX_USERS" ]; then
+    break
+  fi
+  sleep 1
+done
+
 woorricane_api "unlock" "checkout"
 
 wait "${CHILD_PROCS[@]}"
