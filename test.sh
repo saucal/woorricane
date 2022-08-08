@@ -101,6 +101,13 @@ function kill_childs() {
   exit 1
 }
 
+function woorricane_api() {
+  curl -o /dev/null -sSL \
+    --connect-timeout 400 \
+    --max-time 400 \
+    --retry 0 "$HOME_URL/?woorricane_control&action=$1&$1=$2" 2>&1
+}
+
 trap "kill_childs" SIGINT EXIT
 
 SLEEP="$(php -r "echo number_format(( ( ${step} * 60 ) / ${max} ), 5, '.', '' );")"
@@ -112,6 +119,11 @@ echo "Max: $max total users"
 
 LOG_PATH="$PWD/logs"
 rm -rf "$LOG_PATH"
+
+# Lock On Checkout to simulate race
+woorricane_api "cleanup"
+woorricane_api "prepare_product" "$PRODUCT_ID"
+woorricane_api "lock" "checkout"
 
 rm -f curl-step-*.log
 export CURRENT_THREAD
@@ -127,6 +139,8 @@ while true; do
     break;
   fi
 done
+
+woorricane_api "unlock" "checkout"
 
 wait "${CHILD_PROCS[@]}"
 kill_childs
