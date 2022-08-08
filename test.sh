@@ -73,11 +73,17 @@ USERS="0"
 LAUNCHED_PIPE=$(mktemp)
 export FINISHED_PIPE
 FINISHED_PIPE=$(mktemp)
+export STEPS_PIPE
+STEPS_PIPE=$(mktemp)
+rm -rf "$STEPS_PIPE"
+mkdir -p "$STEPS_PIPE/started"
+mkdir -p "$STEPS_PIPE/finished"
 
 function monitor() {
   local LAUNCHED
   local FINISHED
   local ACTIVE
+  local STEP
 
   LAUNCHED=$(wc -c < "${LAUNCHED_PIPE}")
   LAUNCHED=$((LAUNCHED))
@@ -85,8 +91,28 @@ function monitor() {
   FINISHED=$((FINISHED))
   ACTIVE=$((LAUNCHED - FINISHED));
 
+  STEP_STATUS=""
+  if [ -n "$(ls -A "$STEPS_PIPE/started")" ]; then
+    for entry in "$STEPS_PIPE/started"/*; do
+      STEP="$(basename "$entry")"
+      LAUNCHED=$(wc -c < "$entry")
+      LAUNCHED=$((LAUNCHED))
+      FINISHED=0
+      if [ -f "$STEPS_PIPE/finished/$STEP" ]; then
+        FINISHED=$(wc -c < "$STEPS_PIPE/finished/$STEP")
+        FINISHED=$((FINISHED))
+      fi
+      ACTIVE=$((LAUNCHED - FINISHED));
+      STEP_STATUS="${STEP_STATUS} - $STEP:$ACTIVE"
+    done
+  fi
+  STEP_STATUS="${STEP_STATUS#" - "}"
+  if [ -n "$STEP_STATUS" ]; then
+      STEP_STATUS=" | ${STEP_STATUS}"
+  fi
+
   echo -ne "\033[2K\r"
-  echo -ne "Launched: ${LAUNCHED}/${MAX_USERS} - Active: ${ACTIVE}"
+  echo -ne "Launched: ${LAUNCHED}/${MAX_USERS} - Active: ${ACTIVE}${STEP_STATUS}"
 }
 
 ( while true; do sleep 0.1; monitor; done; ) &

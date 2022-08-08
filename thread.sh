@@ -21,8 +21,10 @@ function get_json() {
 function run() {
   STEP=$(( STEP + 1 ))
 
+  echo -n "0" >> "$STEPS_PIPE/started/$STEP"
   "$1" > "$LOG_PATH/curl-step-$STEP.log"
   RET_CODE="$?"
+  echo -n "0" >> "$STEPS_PIPE/finished/$STEP"
   return "$RET_CODE"
 }
 
