@@ -73,11 +73,37 @@ USERS="0"
 LAUNCHED_PIPE=$(mktemp)
 export FINISHED_PIPE
 FINISHED_PIPE=$(mktemp)
+export STEPS_PIPE
+STEPS_PIPE=$(mktemp)
+rm -rf "$STEPS_PIPE"
+mkdir -p "$STEPS_PIPE/started"
+mkdir -p "$STEPS_PIPE/finished"
+
+function step_active() {
+  STEP=$1
+  FILE="$STEPS_PIPE/started/$STEP"
+  if [ ! -f "$FILE" ]; then
+    echo 0;
+    return;
+  fi
+
+  LAUNCHED=$(wc -c < "$FILE")
+  LAUNCHED=$((LAUNCHED))
+  FINISHED=0
+  if [ -f "$STEPS_PIPE/finished/$STEP" ]; then
+    FINISHED=$(wc -c < "$STEPS_PIPE/finished/$STEP")
+    FINISHED=$((FINISHED))
+  fi
+  echo $((LAUNCHED - FINISHED));
+}
+
+export -f step_active
 
 function monitor() {
   local LAUNCHED
   local FINISHED
   local ACTIVE
+  local STEP
 
   LAUNCHED=$(wc -c < "${LAUNCHED_PIPE}")
   LAUNCHED=$((LAUNCHED))
@@ -85,8 +111,20 @@ function monitor() {
   FINISHED=$((FINISHED))
   ACTIVE=$((LAUNCHED - FINISHED));
 
+  STEP_STATUS=""
+  if [ -n "$(ls -A "$STEPS_PIPE/started")" ]; then
+    for entry in "$STEPS_PIPE/started"/*; do
+      STEP="$(basename "$entry")"
+      STEP_STATUS="${STEP_STATUS} - $STEP:$(step_active "$STEP")"
+    done
+  fi
+  STEP_STATUS="${STEP_STATUS#" - "}"
+  if [ -n "$STEP_STATUS" ]; then
+      STEP_STATUS=" | ${STEP_STATUS}"
+  fi
+
   echo -ne "\033[2K\r"
-  echo -ne "Launched: ${LAUNCHED}/${MAX_USERS} - Active: ${ACTIVE}"
+  echo -ne "Launched: ${LAUNCHED}/${MAX_USERS} - Active: ${ACTIVE}${STEP_STATUS}"
 }
 
 ( while true; do sleep 0.1; monitor; done; ) &
@@ -138,6 +176,13 @@ while true; do
   if [ $LIMIT == "1" ]; then
     break;
   fi
+done
+
+while true; do
+  if [ "$(step_active 5)" == "$MAX_USERS" ]; then
+    break
+  fi
+  sleep 1
 done
 
 woorricane_api "unlock" "checkout"
