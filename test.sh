@@ -79,6 +79,26 @@ rm -rf "$STEPS_PIPE"
 mkdir -p "$STEPS_PIPE/started"
 mkdir -p "$STEPS_PIPE/finished"
 
+function step_active() {
+  STEP=$1
+  FILE="$STEPS_PIPE/started/$STEP"
+  if [ ! -f "$FILE" ]; then
+    echo 0;
+    return;
+  fi
+
+  LAUNCHED=$(wc -c < "$FILE")
+  LAUNCHED=$((LAUNCHED))
+  FINISHED=0
+  if [ -f "$STEPS_PIPE/finished/$STEP" ]; then
+    FINISHED=$(wc -c < "$STEPS_PIPE/finished/$STEP")
+    FINISHED=$((FINISHED))
+  fi
+  echo $((LAUNCHED - FINISHED));
+}
+
+export -f step_active
+
 function monitor() {
   local LAUNCHED
   local FINISHED
@@ -95,15 +115,7 @@ function monitor() {
   if [ -n "$(ls -A "$STEPS_PIPE/started")" ]; then
     for entry in "$STEPS_PIPE/started"/*; do
       STEP="$(basename "$entry")"
-      LAUNCHED=$(wc -c < "$entry")
-      LAUNCHED=$((LAUNCHED))
-      FINISHED=0
-      if [ -f "$STEPS_PIPE/finished/$STEP" ]; then
-        FINISHED=$(wc -c < "$STEPS_PIPE/finished/$STEP")
-        FINISHED=$((FINISHED))
-      fi
-      ACTIVE=$((LAUNCHED - FINISHED));
-      STEP_STATUS="${STEP_STATUS} - $STEP:$ACTIVE"
+      STEP_STATUS="${STEP_STATUS} - $STEP:$(step_active "$STEP")"
     done
   fi
   STEP_STATUS="${STEP_STATUS#" - "}"
