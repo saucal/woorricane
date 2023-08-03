@@ -8,6 +8,10 @@ if [ -z "$(which php)" ]; then
   INSTALL+=("php7.4-cli")
 fi
 
+if [ -z "$(which jq)" ]; then
+  INSTALL+=("jq")
+fi
+
 if [ -n "${INSTALL[*]}" ]; then
   apt-get update && apt-get -y install "${INSTALL[@]}"
 fi
