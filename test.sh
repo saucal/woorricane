@@ -164,6 +164,10 @@ woorricane_api "prepare_product" "$PRODUCT_ID"
 
 rm -f curl-step-*.log
 export CURRENT_THREAD
+
+# Record the start time
+start_time=$(date +%s.%N)
+
 while true; do
   USERS=$(( USERS + 1 ));
   CURRENT_THREAD="$USERS"
@@ -178,6 +182,16 @@ while true; do
 done
 
 wait "${CHILD_PROCS[@]}"
+
+# Record the end time
+end_time=$(date +%s.%N)
+elapsed_time=$(echo "$end_time - $start_time" | bc)
+iterations_per_second=$(echo "scale=3;$USERS / $elapsed_time" | bc)
+
+echo ""
+echo ""
+echo "Script execution time: $elapsed_time seconds. Iterations per second: $iterations_per_second"
+
 kill_childs
 
 monitor
