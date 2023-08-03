@@ -105,40 +105,79 @@ function step_active() {
 export -f step_active
 
 function monitor() {
-  local LAUNCHED
-  local FINISHED
-  local ACTIVE
   local STEP
 
-  LAUNCHED=$(wc -c < "${LAUNCHED_PIPE}")
-  LAUNCHED=$((LAUNCHED))
-  FINISHED=$(wc -c < "${FINISHED_PIPE}")
-  FINISHED=$((FINISHED))
-  ACTIVE=$((LAUNCHED - FINISHED));
-
-  STEP_STATUS=""
+  local STATUS_CODE
+  local STATUS_FILE
+  local STATUS_AMOUNT
+  local STATUS_JSON
+  local STEP_JSON
+  STEP_JSON="{}"
   if [ -n "$(ls -A "$STEPS_PIPE/started")" ]; then
     for entry in "$STEPS_PIPE/started"/*; do
       STEP="$(basename "$entry")"
-      STEP_STATUS="${STEP_STATUS} - $STEP:$(step_active "$STEP")"
+
+      STATUS_JSON="{}"
+      if [ -d "$STEPS_PIPE/statuses/$STEP" ] && [ -n "$(ls -A "$STEPS_PIPE/statuses/$STEP")" ]; then
+        for STATUS_FILE in "$STEPS_PIPE/statuses/$STEP"/*; do
+          STATUS_CODE="$(basename "$STATUS_FILE")"
+          STATUS_AMOUNT=$(wc -c < "$STATUS_FILE")
+          STATUS_AMOUNT=$((STATUS_AMOUNT))
+          STATUS_JSON=$(echo "$STATUS_JSON" | jq -rc ". += {\"$STATUS_CODE\": $STATUS_AMOUNT}")
+        done
+      fi
+
+      STEP_JSON=$(echo "$STEP_JSON" | jq --arg step "$STEP" --argjson active "$(step_active "$STEP")" --argjson statuses "$STATUS_JSON" -rc '. += {($step): {"active": $active, "statuses": ($statuses)}}')
     done
   fi
+
   STEP_STATUS="${STEP_STATUS#" - "}"
   if [ -n "$STEP_STATUS" ]; then
       STEP_STATUS=" | ${STEP_STATUS}"
   fi
 
-  echo -ne "\033[2K\r"
-  echo -ne "Launched: ${LAUNCHED}/${MAX_USERS} - Active: ${ACTIVE}${STEP_STATUS}"
+  # Function to hide the cursor
+  hide_cursor() {
+    tput civis
+  }
+  
+  # Function to show the cursor
+  show_cursor() {
+    tput cnorm
+  }
+
+  # Function to draw the table based on data
+  draw_table() {
+    hide_cursor
+    tput cup 4 0  # Move cursor to top-left
+    while IFS= read -r step_key; do
+      local row_data=$(echo "$STEP_JSON" | jq --arg step "$step_key" -rc '.[$step]')
+      echo "$step_key - $row_data";
+      continue;
+      while IFS= read -r key; do
+        local cell=$(echo "$row_data" | jq -rc ".$key")
+        printf "%-15s" "$cell"
+      done < <(echo "$row_data" | jq -r 'keys_unsorted[]')
+      printf "\n"
+    done < <(echo "$STEP_JSON" | jq -r 'keys_unsorted[]')
+    show_cursor
+  }
+
+  draw_table
 }
 
-( while true; do
-  sleep 0.1;
-  monitor;
-  if [ -f "$STEPS_PIPE/monitor_exit" ]; then
-    break;
-  fi
-done; ) &
+(
+  clear;
+  while true; do
+    sleep 0.1;
+    monitor;
+    if [ -f "$STEPS_PIPE/monitor_exit" ]; then
+      sleep 0.5;
+      monitor;
+      break;
+    fi
+  done;
+) &
 MONITOR_PROC=$!
 
 function kill_childs() {
@@ -146,7 +185,6 @@ function kill_childs() {
     kill -9 "$i" 2>/dev/null
   done
   kill -15 "${MONITOR_PROC}" 2>/dev/null 1>/dev/null
-  echo -en "\n"
   exit 1
 }
 
@@ -194,14 +232,13 @@ done
 
 wait "${CHILD_PROCS[@]}"
 
-touch "$STEPS_PIPE/monitor_exit"
-wait
-
 # Record the end time
 end_time=$(date +%s.%N)
 elapsed_time=$(echo "$end_time - $start_time" | bc)
 iterations_per_second=$(echo "scale=3;$USERS / $elapsed_time" | bc)
 
-echo ""
+touch "$STEPS_PIPE/monitor_exit"
+wait
+
 echo ""
 echo "Script execution time: $elapsed_time seconds. Iterations per second: $iterations_per_second"
