@@ -161,7 +161,6 @@ rm -rf "$LOG_PATH"
 # Lock On Checkout to simulate race
 woorricane_api "cleanup"
 woorricane_api "prepare_product" "$PRODUCT_ID"
-woorricane_api "lock" "checkout"
 
 rm -f curl-step-*.log
 export CURRENT_THREAD
@@ -177,15 +176,6 @@ while true; do
     break;
   fi
 done
-
-while true; do
-  if [ "$(step_active 5)" == "$MAX_USERS" ]; then
-    break
-  fi
-  sleep 1
-done
-
-woorricane_api "unlock" "checkout"
 
 wait "${CHILD_PROCS[@]}"
 kill_childs
