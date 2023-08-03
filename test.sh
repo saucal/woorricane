@@ -82,6 +82,7 @@ STEPS_PIPE=$(mktemp)
 rm -rf "$STEPS_PIPE"
 mkdir -p "$STEPS_PIPE/started"
 mkdir -p "$STEPS_PIPE/finished"
+mkdir -p "$STEPS_PIPE/statuses"
 
 function step_active() {
   STEP=$1

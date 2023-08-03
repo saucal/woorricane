@@ -47,6 +47,10 @@ get() {
     cat "${LAST_REQ_FILE}"
     echo ""
   } > "${LAST_REQ_FULL}"
+
+  mkdir -p "$STEPS_PIPE/statuses/$STEP"
+  local status_code=$(cat "$LAST_REQ_RESPONSE_HEADERS" | head -n 1 | awk '{print $2}')
+  echo -n "0" >> "$STEPS_PIPE/statuses/$STEP/$status_code"
   
   cat "${LAST_REQ_FULL}"
 }
