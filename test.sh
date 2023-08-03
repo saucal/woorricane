@@ -48,8 +48,8 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 export PRODUCT_ID
 URL="${URL%/}"
 URL="${URL#/}"
-CART="${CHECKOUT%/}"
-CART="${CHECKOUT#/}"
+CART="${CART%/}"
+CART="${CART#/}"
 CHECKOUT="${CHECKOUT%/}"
 CHECKOUT="${CHECKOUT#/}"
 export HOME_URL="${URL}"
