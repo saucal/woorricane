@@ -131,7 +131,13 @@ function monitor() {
   echo -ne "Launched: ${LAUNCHED}/${MAX_USERS} - Active: ${ACTIVE}${STEP_STATUS}"
 }
 
-( while true; do sleep 0.1; monitor; done; ) &
+( while true; do
+  sleep 0.1;
+  monitor;
+  if [ -f "$STEPS_PIPE/monitor_exit" ]; then
+    break;
+  fi
+done; ) &
 MONITOR_PROC=$!
 
 function kill_childs() {
@@ -187,6 +193,9 @@ done
 
 wait "${CHILD_PROCS[@]}"
 
+touch "$STEPS_PIPE/monitor_exit"
+wait
+
 # Record the end time
 end_time=$(date +%s.%N)
 elapsed_time=$(echo "$end_time - $start_time" | bc)
@@ -195,9 +204,3 @@ iterations_per_second=$(echo "scale=3;$USERS / $elapsed_time" | bc)
 echo ""
 echo ""
 echo "Script execution time: $elapsed_time seconds. Iterations per second: $iterations_per_second"
-
-kill_childs
-
-monitor
-
-echo ""
