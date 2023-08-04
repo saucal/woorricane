@@ -127,11 +127,6 @@ function monitor() {
     done
   fi
 
-  STEP_STATUS="${STEP_STATUS#" - "}"
-  if [ -n "$STEP_STATUS" ]; then
-      STEP_STATUS=" | ${STEP_STATUS}"
-  fi
-
   # Function to hide the cursor
   hide_cursor() {
     tput civis
