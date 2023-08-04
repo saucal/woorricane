@@ -68,6 +68,10 @@ max="$1"
 if [ -z "${max}" ]; then
   max="100"
 fi
+
+SLEEP="$(printf '%.5f\n' "$(echo "scale=5; (${step} * 60) / ${max}" | bc )")"
+rate="$(printf '%d\n' "$(echo "1 / ${SLEEP}" | bc )")"
+
 MAX_USERS="${max}"
 USERS="0"
 LAUNCHED_PIPE=$(mktemp)
@@ -107,7 +111,11 @@ function monitor() {
   local STATUS_FILE
   local STATUS_AMOUNT
   local STATUS_JSON
+  local STEP_ACTIVE
   local STEP_JSON
+
+  local TOTAL_ACTIVE=0
+
   STEP_JSON="{}"
   if [ -n "$(ls -A "$STEPS_PIPE/started")" ]; then
     for entry in "$STEPS_PIPE/started"/*; do
@@ -123,7 +131,9 @@ function monitor() {
         done
       fi
 
-      STEP_JSON=$(echo "$STEP_JSON" | jq --arg step "$STEP" --argjson active "$(step_active "$STEP")" --argjson statuses "$STATUS_JSON" -rc '. += {($step): {"active": $active, "statuses": ($statuses)}}')
+      STEP_ACTIVE=$(step_active "$STEP")
+      TOTAL_ACTIVE=$((TOTAL_ACTIVE + STEP_ACTIVE))
+      STEP_JSON=$(echo "$STEP_JSON" | jq --arg step "$STEP" --argjson active "$STEP_ACTIVE" --argjson statuses "$STATUS_JSON" -rc '. += {($step): {"active": $active, "statuses": ($statuses)}}')
     done
   fi
 
@@ -141,9 +151,14 @@ function monitor() {
   draw_table() {
     hide_cursor
     tput cup 4 0  # Move cursor to top-left
+    tput el       # Clear to end of line
+    echo "Total Active: $TOTAL_ACTIVE"
+    echo ""
+    tput el       # Clear to end of line
     while IFS= read -r step_key; do
       local row_data=$(echo "$STEP_JSON" | jq --arg step "$step_key" -rc '.[$step]')
       echo "$step_key - $row_data";
+      tput el       # Clear to end of line
       continue;
       while IFS= read -r key; do
         local cell=$(echo "$row_data" | jq -rc ".$key")
@@ -159,6 +174,9 @@ function monitor() {
 
 (
   clear;
+  echo "Ramp up: $step minutes"
+  echo "Rate: $rate calls added / second"
+  echo "Max: $max total users"
   while true; do
     sleep 0.1;
     monitor;
@@ -187,13 +205,6 @@ function woorricane_api() {
 }
 
 trap "kill_childs" SIGINT EXIT
-
-SLEEP="$(printf '%.5f\n' "$(echo "scale=5; (${step} * 60) / ${max}" | bc )")"
-rate="$(printf '%d\n' "$(echo "1 / ${SLEEP}" | bc )")"
-
-echo "Ramp up: $step minutes"
-echo "Rate: $rate calls added / second"
-echo "Max: $max total users"
 
 LOG_PATH="$PWD/logs"
 rm -rf "$LOG_PATH"
