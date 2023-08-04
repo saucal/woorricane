@@ -4,10 +4,6 @@ if [ -z "$(which curl)" ]; then
   INSTALL+=("curl")
 fi
 
-if [ -z "$(which php)" ]; then
-  INSTALL+=("php7.4-cli")
-fi
-
 if [ -z "$(which jq)" ]; then
   INSTALL+=("jq")
 fi
@@ -197,8 +193,8 @@ function woorricane_api() {
 
 trap "kill_childs" SIGINT EXIT
 
-SLEEP="$(php -r "echo number_format(( ( ${step} * 60 ) / ${max} ), 5, '.', '' );")"
-rate="$(php -r "echo intval( 1 / ${SLEEP} );")"
+SLEEP="$(printf '%.5f\n' "$(echo "scale=5; (${step} * 60) / ${max}" | bc )")"
+rate="$(printf '%d\n' "$(echo "1 / ${SLEEP}" | bc )")"
 
 echo "Ramp up: $step minutes"
 echo "Rate: $rate calls added / second"
