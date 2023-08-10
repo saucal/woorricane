@@ -95,8 +95,8 @@ function step_5() {
 
 function checkout_flow() {
 
-  run step_1
-  run step_2
+  run step_1 || return;
+  run step_2 || return;
 
   HAS_ERR="$?"
 
@@ -104,11 +104,11 @@ function checkout_flow() {
     return;
   fi
 
-  run step_3
+  run step_3 || return;
 
-  run step_4
+  run step_4 || return;
 
-  run step_5
+  run step_5 || return;
 
 }
 
