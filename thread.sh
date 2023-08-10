@@ -14,10 +14,6 @@ LAST_REQ_RESPONSE_HEADERS=$(mktemp)
 LAST_REQ_FULL=$(mktemp)
 STEP=0
 
-function get_json() {
-  php -r "try{ \$json = json_decode(file_get_contents('php://stdin'), true ); if( isset( \$json ) && isset( \$json[\$argv[1]] ) ) { echo is_scalar(\$json[\$argv[1]]) ? \$json[\$argv[1]] : json_encode(\$json[\$argv[1]]); } } catch( Exception \$e ) {}" "$@"
-}
-
 function run() {
   STEP=$(( STEP + 1 ))
 
@@ -68,8 +64,8 @@ function step_2() {
     -H "Referer: ${HOME_URL}" \
     --data-raw "product_id=${PRODUCT_ID}&quantity=${QTY}"
 
-  HAS_ERR=$(get_json "error" < "${LAST_REQ_FILE}")
-  if [ -n "$HAS_ERR" ]; then
+  HAS_ERR=$(jq '.error' < "${LAST_REQ_FILE}")
+  if [ "$HAS_ERR" != "null" ]; then
     return 1;
   fi
 }
