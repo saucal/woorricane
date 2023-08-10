@@ -30,7 +30,14 @@ get() {
     --connect-timeout 400 \
     --max-time 400 \
     --trace-ascii - \
-    --retry 0 "$@" 2>&1 | awk '/=> Send header,/{flag=1; next} /== Info:/{flag=0} flag' | sed '/^=> Send data,.*$/d' | sed 's/^[[:xdigit:]]*: //g')
+    --retry 0 "$@" 2>&1)
+
+  HAS_ERR=$?
+  if [ $HAS_ERR -ne 0 ]; then
+    return $HAS_ERR;
+  fi
+  
+  DATA=$(echo "$DATA" | awk '/=> Send header,/{flag=1; next} /== Info:/{flag=0} flag' | sed '/^=> Send data,.*$/d' | sed 's/^[[:xdigit:]]*: //g')
 
   {
     echo "${DATA}"
