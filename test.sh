@@ -201,7 +201,7 @@ function woorricane_api() {
   curl -o /dev/null -sSL \
     --connect-timeout 400 \
     --max-time 400 \
-    --retry 0 "$HOME_URL/?woorricane_control&action=$1&$1=$2" 2>&1
+    --retry 0 "$HOME_URL/?woorricane_control&action=$1&$1=$2"
 }
 
 trap "kill_childs" SIGINT EXIT
@@ -210,8 +210,8 @@ LOG_PATH="$PWD/logs"
 rm -rf "$LOG_PATH"
 
 # Lock On Checkout to simulate race
-woorricane_api "cleanup"
-woorricane_api "prepare_product" "$PRODUCT_ID"
+woorricane_api "cleanup" || exit 1
+woorricane_api "prepare_product" "$PRODUCT_ID" || exit 1
 
 rm -f curl-step-*.log
 export CURRENT_THREAD
