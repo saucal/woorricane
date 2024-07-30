@@ -20,6 +20,8 @@ If you don't run it as sudo, then you can pre install the following:
 
 On the site you're running this on, you'll need to install and activate the [Woorricane Helper plugin](https://github.com/saucal/woorricane-helper)
 
+### NOTE: This plugin is not compatible with Checkout Blocks.
+
 # Getting Started
 
 Just run the `test.sh` command with the following options:
