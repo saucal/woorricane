@@ -12,6 +12,9 @@ if [ -n "${INSTALL[*]}" ]; then
   apt-get update && apt-get -y install "${INSTALL[@]}"
 fi
 
+CART="cart"
+CHECKOUT="checkout"
+
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
   key="$1"
