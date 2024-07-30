@@ -245,13 +245,18 @@ trap "kill_childs" SIGINT
 trap "graceful_exit" EXIT
 
 LOG_PATH="$PWD/logs"
+
+echo "--- Cleaning up"
 rm -rf "$LOG_PATH"
 rm -f curl-step-*.log
 
 # Lock On Checkout to simulate race
 woorricane_api "cleanup" || exit 1
+
+echo "--- Preparing product"
 woorricane_api "prepare_product" "$PRODUCT_ID" || exit 1
 
+echo "--- Launching process"
 launch_monitor
 
 export CURRENT_THREAD
