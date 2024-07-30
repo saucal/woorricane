@@ -85,6 +85,7 @@ STEPS_PIPE=$(mktemp)
 rm -rf "$STEPS_PIPE"
 mkdir -p "$STEPS_PIPE/started"
 mkdir -p "$STEPS_PIPE/finished"
+mkdir -p "$STEPS_PIPE/max-concurrent"
 mkdir -p "$STEPS_PIPE/statuses"
 
 function step_active() {
@@ -106,6 +107,25 @@ function step_active() {
 }
 
 export -f step_active
+
+function step_max() {
+  STEP=$1
+  CURRENT_ACTIVE=$2
+  local MAX=0 
+  FILE="$STEPS_PIPE/max-concurrent/$STEP"
+  if [ -f "$FILE" ]; then
+    MAX=$(cat "$FILE")
+  fi
+  
+  if [ $CURRENT_ACTIVE -gt $MAX ]; then
+    echo $CURRENT_ACTIVE > "$FILE"
+    echo $CURRENT_ACTIVE
+  else
+    echo $MAX
+  fi
+}
+
+export -f step_max
 
 function monitor() {
   local STEP
@@ -135,8 +155,9 @@ function monitor() {
       fi
 
       STEP_ACTIVE=$(step_active "$STEP")
+      STEP_MAX=$(step_max "$STEP" "$STEP_ACTIVE")
       TOTAL_ACTIVE=$((TOTAL_ACTIVE + STEP_ACTIVE))
-      STEP_JSON=$(echo "$STEP_JSON" | jq --arg step "$STEP" --argjson active "$STEP_ACTIVE" --argjson statuses "$STATUS_JSON" -rc '. += {($step): {"active": $active, "statuses": ($statuses)}}')
+      STEP_JSON=$(echo "$STEP_JSON" | jq --arg step "$STEP" --argjson max "$STEP_MAX" --argjson active "$STEP_ACTIVE" --argjson statuses "$STATUS_JSON" -rc '. += {($step): {"active": $active,"max-concurrent": $max, "statuses": ($statuses)}}')
     done
   fi
 
