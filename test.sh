@@ -186,22 +186,27 @@ function monitor() {
   draw_table
 }
 
-(
-  clear;
-  echo "Ramp up: $step minutes"
-  echo "Rate: $rate calls added / second"
-  echo "Max: $max total users"
-  while true; do
-    sleep 0.1;
-    monitor;
-    if [ -f "$STEPS_PIPE/monitor_exit" ]; then
-      sleep 0.5;
+# Record the start time
+start_time=$(date +%s.%N)
+
+function launch_monitor() {
+  (
+    clear;
+    echo "Ramp up: $step minutes"
+    echo "Rate: $rate calls added / second"
+    echo "Max: $max total users"
+    while true; do
+      sleep 0.1;
       monitor;
-      break;
-    fi
-  done;
-) &
-MONITOR_PROC=$!
+      if [ -f "$STEPS_PIPE/monitor_exit" ]; then
+        sleep 0.5;
+        monitor;
+        break;
+      fi
+    done;
+  ) &
+  MONITOR_PROC=$!
+}
 
 function kill_childs() {
   for i in ${CHILD_PROCS[@]}; do
@@ -211,6 +216,19 @@ function kill_childs() {
   exit 1
 }
 
+function graceful_exit() {
+  # Record the end time
+  end_time=$(date +%s.%N)
+  elapsed_time=$(echo "scale=0;$end_time - $start_time" | bc)
+  iterations_per_second=$(echo "scale=3;$USERS / $elapsed_time" | bc)
+
+  touch "$STEPS_PIPE/monitor_exit"
+  wait
+
+  echo ""
+  echo "Script execution time: $elapsed_time seconds. Iterations per second: $iterations_per_second"
+}
+
 function woorricane_api() {
   curl -o /dev/null -sSL \
     --connect-timeout 400 \
@@ -218,21 +236,21 @@ function woorricane_api() {
     --retry 0 "$HOME_URL/?woorricane_control&action=$1&$1=$2"
 }
 
-trap "kill_childs" SIGINT EXIT
+trap "kill_childs" SIGINT
+
+trap "graceful_exit" EXIT
 
 LOG_PATH="$PWD/logs"
 rm -rf "$LOG_PATH"
+rm -f curl-step-*.log
 
 # Lock On Checkout to simulate race
 woorricane_api "cleanup" || exit 1
 woorricane_api "prepare_product" "$PRODUCT_ID" || exit 1
 
-rm -f curl-step-*.log
+launch_monitor
+
 export CURRENT_THREAD
-
-# Record the start time
-start_time=$(date +%s.%N)
-
 while true; do
   USERS=$(( USERS + 1 ));
   CURRENT_THREAD="$USERS"
@@ -247,14 +265,3 @@ while true; do
 done
 
 wait "${CHILD_PROCS[@]}"
-
-# Record the end time
-end_time=$(date +%s.%N)
-elapsed_time=$(echo "$end_time - $start_time" | bc)
-iterations_per_second=$(echo "scale=3;$USERS / $elapsed_time" | bc)
-
-touch "$STEPS_PIPE/monitor_exit"
-wait
-
-echo ""
-echo "Script execution time: $elapsed_time seconds. Iterations per second: $iterations_per_second"
