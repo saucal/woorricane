@@ -1,0 +1,17 @@
+#!/usr/bin/env php
+<?php
+/**
+ * this is the PHP wrapper for woorricane
+ */
+
+$woorricane = dirname( __DIR__ ) . '/woorricane';
+if ( ! file_exists( $woorricane ) ) {
+	echo "woorricane not found at $woorricane\n";
+	exit( 1 );
+}
+
+$args = (array) $argv;
+array_shift( $args ); // remove the script name
+
+passthru( '"' . $woorricane . '" ' . implode( ' ', array_map( 'escapeshellarg', $args ) ) );
+

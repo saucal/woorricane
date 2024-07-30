@@ -1,0 +1,12 @@
+{
+    "name": "saucal/woorricane",
+	"description": "WooCommerce",
+	"license": "proprietary",
+    "authors": [
+        {
+            "name": "Matias Saggiorato",
+            "email": "saggiorato@saucal.com"
+        }
+    ],
+    "bin": ["bin/woorricane"]
+}
