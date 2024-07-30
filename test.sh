@@ -137,19 +137,9 @@ function monitor() {
     done
   fi
 
-  # Function to hide the cursor
-  hide_cursor() {
-    tput civis
-  }
-  
-  # Function to show the cursor
-  show_cursor() {
-    tput cnorm
-  }
-
   # Function to draw the table based on data
   draw_table() {
-    hide_cursor
+    tput civis    # Hide cursor
     tput cup 4 0  # Move cursor to top-left
     tput el       # Clear to end of line
     echo "Total Active: $TOTAL_ACTIVE"
@@ -166,7 +156,7 @@ function monitor() {
       done < <(echo "$row_data" | jq -r 'keys_unsorted[]')
       printf "\n"
     done < <(echo "$STEP_JSON" | jq -r 'keys_unsorted[]')
-    show_cursor
+    tput cnorm    # Show cursor
   }
 
   draw_table
