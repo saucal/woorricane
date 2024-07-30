@@ -8,6 +8,10 @@ if [ -z "$(which jq)" ]; then
   INSTALL+=("jq")
 fi
 
+if [ -z "$(which php)" ]; then
+  INSTALL+=("php")
+fi
+
 if [ -n "${INSTALL[*]}" ]; then
   apt-get update && apt-get -y install "${INSTALL[@]}"
 fi
