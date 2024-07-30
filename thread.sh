@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOG_PATH="$PWD/logs/t-$CURRENT_THREAD"
+LOG_PATH="$PWD/woorricane-logs/t-$CURRENT_THREAD"
 rm -rf "$LOG_PATH"
 mkdir -p "$LOG_PATH"
 

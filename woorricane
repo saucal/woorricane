@@ -244,7 +244,7 @@ trap "kill_childs" SIGINT
 
 trap "graceful_exit" EXIT
 
-LOG_PATH="$PWD/logs"
+LOG_PATH="$PWD/woorricane-logs"
 
 echo "--- Cleaning up"
 rm -rf "$LOG_PATH"
