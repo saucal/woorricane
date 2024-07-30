@@ -13,5 +13,7 @@ if ( ! file_exists( $woorricane ) ) {
 $args = (array) $argv;
 array_shift( $args ); // remove the script name
 
+putenv( 'WOORRICANE_DIR=' . dirname( __DIR__ ) );
+
 passthru( '"' . $woorricane . '" ' . implode( ' ', array_map( 'escapeshellarg', $args ) ) );
 

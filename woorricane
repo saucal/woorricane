@@ -259,11 +259,15 @@ woorricane_api "prepare_product" "$PRODUCT_ID" || exit 1
 echo "--- Launching process"
 launch_monitor
 
+if [ -z "${WOORRICANE_DIR}" ]; then
+	WOORRICANE_DIR="$(pwd)"
+fi
+
 export CURRENT_THREAD
 while true; do
   USERS=$(( USERS + 1 ));
   CURRENT_THREAD="$USERS"
-  bash "thread.sh" & # 2>/dev/null 1>/dev/null &
+  bash "${WOORRICANE_DIR}/thread.sh" & # 2>/dev/null 1>/dev/null &
   CHILD_PROCS+=("$!")
   echo -n '0' >> "${LAUNCHED_PIPE}"
   sleep "${SLEEP}"
