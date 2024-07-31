@@ -299,8 +299,13 @@ if [ -z "${max}" ]; then
   max="100"
 fi
 
-SLEEP="$(printf '%.5f\n' "$(echo "scale=5; (${step} * 60) / ${max}" | bc )")"
-rate="$(printf '%d\n' "$(echo "1 / ${SLEEP}" | bc )")"
+if [ "$step" -eq "0" ]; then
+  SLEEP="0"
+  rate="$max"
+else
+  SLEEP="$(printf '%.5f\n' "$(echo "scale=5; (${step} * 60) / ${max}" | bc )")"
+  rate="$(printf '%d\n' "$(echo "1 / ${SLEEP}" | bc )")"
+fi
 
 MAX_USERS="${max}"
 USERS="0"
@@ -329,7 +334,11 @@ while true; do
   bash "${WOORRICANE_DIR}/thread.sh" & # 2>/dev/null 1>/dev/null &
   CHILD_PROCS+=("$!")
   echo -n '0' >> "${LAUNCHED_PIPE}"
-  sleep "${SLEEP}"
+
+  if [ "$step" -ne "0" ]; then
+    sleep "${SLEEP}"
+  fi
+
   LIMIT=$(( USERS >= MAX_USERS ));
   if [ $LIMIT == "1" ]; then
     break;
