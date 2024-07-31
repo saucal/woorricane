@@ -66,21 +66,6 @@ export CHECKOUT_URL="${URL}/${CHECKOUT}/"
 export AJAX_CHECKOUT_URL="${URL}/?wc-ajax=checkout"
 
 CHILD_PROCS=()
-
-step="$2"
-if [ -z "${step}" ]; then
-  step="1"
-fi
-max="$1"
-if [ -z "${max}" ]; then
-  max="100"
-fi
-
-SLEEP="$(printf '%.5f\n' "$(echo "scale=5; (${step} * 60) / ${max}" | bc )")"
-rate="$(printf '%d\n' "$(echo "1 / ${SLEEP}" | bc )")"
-
-MAX_USERS="${max}"
-USERS="0"
 LAUNCHED_PIPE=$(mktemp)
 export FINISHED_PIPE
 FINISHED_PIPE=$(mktemp)
@@ -131,7 +116,31 @@ function step_max() {
 
 export -f step_max
 
-function monitor() {
+export rows_printed
+rows_printed=0
+export anchor_row
+anchor_row=0
+
+function clear() {
+  tput clear
+  rows_printed=0
+}
+
+function save_row() {
+  anchor_row=$((rows_printed))
+}
+
+function restore_row() {
+  tput cup $anchor_row 0
+  rows_printed=$((anchor_row))
+}
+
+function echo() {
+  command echo "$@"
+  rows_printed=$((rows_printed + 1))
+}
+
+function generate_json() {
   local STEP
 
   local STATUS_CODE
@@ -165,25 +174,53 @@ function monitor() {
     done
   fi
 
+  echo "$STEP_JSON"
+}
+
+function print_table() {
+  local STEP_JSON=$1
+  local no_tput="${2:-0}"
+  local row_data
+  local step_key
+  local key
+  while IFS= read -r step_key; do
+    local row_data=$(echo "$STEP_JSON" | jq --arg step "$step_key" -rc '.[$step]')
+    echo "$step_key - $row_data";
+    if [ $no_tput -eq 0 ]; then
+      tput el       # Clear to end of line
+    fi
+    continue;
+    while IFS= read -r key; do
+      local cell=$(echo "$row_data" | jq -rc ".$key")
+      printf "%-15s" "$cell"
+    done < <(echo "$row_data" | jq -r 'keys_unsorted[]')
+    printf "\n"
+  done < <(echo "$STEP_JSON" | jq -r 'keys_unsorted[]')
+}
+
+function monitor() {
+  local STEP
+
+  local STATUS_CODE
+  local STATUS_FILE
+  local STATUS_AMOUNT
+  local STATUS_JSON
+  local STEP_ACTIVE
+  local STEP_JSON
+
+  local TOTAL_ACTIVE=0
+
+  STEP_JSON="$(generate_json)"
+
   # Function to draw the table based on data
   draw_table() {
     tput civis    # Hide cursor
-    tput cup 4 0  # Move cursor to top-left
+    restore_row   # Restore the row
     tput el       # Clear to end of line
     echo "Total Active: $TOTAL_ACTIVE"
-    echo ""
     tput el       # Clear to end of line
-    while IFS= read -r step_key; do
-      local row_data=$(echo "$STEP_JSON" | jq --arg step "$step_key" -rc '.[$step]')
-      echo "$step_key - $row_data";
-      tput el       # Clear to end of line
-      continue;
-      while IFS= read -r key; do
-        local cell=$(echo "$row_data" | jq -rc ".$key")
-        printf "%-15s" "$cell"
-      done < <(echo "$row_data" | jq -r 'keys_unsorted[]')
-      printf "\n"
-    done < <(echo "$STEP_JSON" | jq -r 'keys_unsorted[]')
+    echo ""
+    print_table "$STEP_JSON"
     tput cnorm    # Show cursor
   }
 
@@ -194,17 +231,23 @@ function monitor() {
 start_time=$(date +%s.%N)
 
 function launch_monitor() {
+  clear >&2
+  echo "Ramp up: $step minutes"
+  echo "Rate: $rate calls added / second"
+  echo "Max: $max total users"
+  echo ""
+  save_row
   (
-    clear;
-    echo "Ramp up: $step minutes"
-    echo "Rate: $rate calls added / second"
-    echo "Max: $max total users"
     while true; do
       sleep 0.1;
-      monitor;
+      monitor >&2;
       if [ -f "$STEPS_PIPE/monitor_exit" ]; then
         sleep 0.5;
-        monitor;
+        restore_row >&2
+        echo "Total Active: 0          "
+        echo ""
+
+        print_table "$(generate_json)" 1;
         break;
       fi
     done;
@@ -245,6 +288,22 @@ trap "kill_childs" SIGINT
 trap "graceful_exit" EXIT
 
 LOG_PATH="$PWD/woorricane-logs"
+
+echo "--- Initializing"
+step="$2"
+if [ -z "${step}" ]; then
+  step="1"
+fi
+max="$1"
+if [ -z "${max}" ]; then
+  max="100"
+fi
+
+SLEEP="$(printf '%.5f\n' "$(echo "scale=5; (${step} * 60) / ${max}" | bc )")"
+rate="$(printf '%d\n' "$(echo "1 / ${SLEEP}" | bc )")"
+
+MAX_USERS="${max}"
+USERS="0"
 
 echo "--- Cleaning up"
 rm -rf "$LOG_PATH"
