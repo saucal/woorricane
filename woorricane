@@ -152,7 +152,7 @@ function generate_json() {
 
   local TOTAL_ACTIVE=0
 
-  STEP_JSON="{}"
+  STEP_JSON="{\"steps\":{}, \"active\": 0}"
   if [ -n "$(ls -A "$STEPS_PIPE/started")" ]; then
     for entry in "$STEPS_PIPE/started"/*; do
       STEP="$(basename "$entry")"
@@ -170,7 +170,8 @@ function generate_json() {
       STEP_ACTIVE=$(step_active "$STEP")
       STEP_MAX=$(step_max "$STEP" "$STEP_ACTIVE")
       TOTAL_ACTIVE=$((TOTAL_ACTIVE + STEP_ACTIVE))
-      STEP_JSON=$(echo "$STEP_JSON" | jq --arg step "$STEP" --argjson max "$STEP_MAX" --argjson active "$STEP_ACTIVE" --argjson statuses "$STATUS_JSON" -rc '. += {($step): {"active": $active,"max-concurrent": $max, "statuses": ($statuses)}}')
+
+      STEP_JSON=$(echo "$STEP_JSON" | jq --arg step "$STEP" --argjson max "$STEP_MAX" --argjson active "$STEP_ACTIVE" --argjson total_active "$TOTAL_ACTIVE" --argjson statuses "$STATUS_JSON" -rc '.active = ($total_active) | .steps += {($step): {"active": $active,"max-concurrent": $max, "statuses": ($statuses)}}')
     done
   fi
 
@@ -184,7 +185,7 @@ function print_table() {
   local step_key
   local key
   while IFS= read -r step_key; do
-    local row_data=$(echo "$STEP_JSON" | jq --arg step "$step_key" -rc '.[$step]')
+    local row_data=$(echo "$STEP_JSON" | jq --arg step "$step_key" -rc '.steps[$step]')
     echo "$step_key - $row_data";
     if [ $no_tput -eq 0 ]; then
       tput el       # Clear to end of line
@@ -195,7 +196,7 @@ function print_table() {
       printf "%-15s" "$cell"
     done < <(echo "$row_data" | jq -r 'keys_unsorted[]')
     printf "\n"
-  done < <(echo "$STEP_JSON" | jq -r 'keys_unsorted[]')
+  done < <(echo "$STEP_JSON" | jq -r '.steps | keys_unsorted[]')
 }
 
 function monitor() {
@@ -211,6 +212,7 @@ function monitor() {
   local TOTAL_ACTIVE=0
 
   STEP_JSON="$(generate_json)"
+  TOTAL_ACTIVE=$(echo "$STEP_JSON" | jq -r '.active')
 
   # Function to draw the table based on data
   draw_table() {
