@@ -152,7 +152,19 @@ function generate_json() {
 
   local TOTAL_ACTIVE=0
 
-  STEP_JSON="{\"steps\":{}, \"active\": 0}"
+  local MAX_ACTIVE=0
+  if [ -f "$STEPS_PIPE/max_active" ]; then
+    MAX_ACTIVE=$(cat "$STEPS_PIPE/max_active")
+  fi
+
+  local FIRST_ERROR_AT_ACTIVE=0
+  if [ -f "$STEPS_PIPE/first_error_at_active" ]; then
+    FIRST_ERROR_AT_ACTIVE=$(cat "$STEPS_PIPE/first_error_at_active")
+  fi
+
+  local HAS_ERROR=0
+
+  STEP_JSON="{\"steps\":{}, \"active\": 0, \"max_active\": 0, \"first_error_at_active\": 0}"
   if [ -n "$(ls -A "$STEPS_PIPE/started")" ]; then
     for entry in "$STEPS_PIPE/started"/*; do
       STEP="$(basename "$entry")"
@@ -161,6 +173,9 @@ function generate_json() {
       if [ -d "$STEPS_PIPE/statuses/$STEP" ] && [ -n "$(ls -A "$STEPS_PIPE/statuses/$STEP")" ]; then
         for STATUS_FILE in "$STEPS_PIPE/statuses/$STEP"/*; do
           STATUS_CODE="$(basename "$STATUS_FILE")"
+          if [ "$STATUS_CODE" -ne "200" ]; then
+            HAS_ERROR=1
+          fi
           STATUS_AMOUNT=$(wc -c < "$STATUS_FILE")
           STATUS_AMOUNT=$((STATUS_AMOUNT))
           STATUS_JSON=$(echo "$STATUS_JSON" | jq -rc ". += {\"$STATUS_CODE\": $STATUS_AMOUNT}")
@@ -174,6 +189,19 @@ function generate_json() {
       STEP_JSON=$(echo "$STEP_JSON" | jq --arg step "$STEP" --argjson max "$STEP_MAX" --argjson active "$STEP_ACTIVE" --argjson total_active "$TOTAL_ACTIVE" --argjson statuses "$STATUS_JSON" -rc '.active = ($total_active) | .steps += {($step): {"active": $active,"max-concurrent": $max, "statuses": ($statuses)}}')
     done
   fi
+
+  if [ $TOTAL_ACTIVE -gt $MAX_ACTIVE ]; then
+    echo $TOTAL_ACTIVE > "$STEPS_PIPE/max_active"
+    MAX_ACTIVE="$TOTAL_ACTIVE"
+  fi
+
+  if [ $HAS_ERROR -eq 1 ]; then
+    if [ "$FIRST_ERROR_AT_ACTIVE" -eq 0 ]; then
+      echo $TOTAL_ACTIVE > "$STEPS_PIPE/first_error_at_active"
+    fi
+  fi
+
+  STEP_JSON=$(echo "$STEP_JSON" | jq --argjson max_active "$MAX_ACTIVE" --argjson first_error "$FIRST_ERROR_AT_ACTIVE" -rc '.max_active = $max_active | .first_error_at_active = $first_error')
 
   echo "$STEP_JSON"
 }
@@ -210,9 +238,13 @@ function monitor() {
   local STEP_JSON
 
   local TOTAL_ACTIVE=0
+  local MAX_ACTIVE=0
+  local FIRST_ERROR_AT_ACTIVE=0
 
   STEP_JSON="$(generate_json)"
   TOTAL_ACTIVE=$(echo "$STEP_JSON" | jq -r '.active')
+  MAX_ACTIVE=$(echo "$STEP_JSON" | jq -r '.max_active')
+  FIRST_ERROR_AT_ACTIVE=$(echo "$STEP_JSON" | jq -r '.first_error_at_active')
 
   # Function to draw the table based on data
   draw_table() {
@@ -220,6 +252,10 @@ function monitor() {
     restore_row   # Restore the row
     tput el       # Clear to end of line
     echo "Total Active: $TOTAL_ACTIVE"
+    tput el       # Clear to end of line
+    echo "Max Active: $MAX_ACTIVE"
+    tput el       # Clear to end of line
+    echo "First Error: $FIRST_ERROR_AT_ACTIVE"
     tput el       # Clear to end of line
     echo ""
     print_table "$STEP_JSON"
@@ -246,10 +282,20 @@ function launch_monitor() {
       if [ -f "$STEPS_PIPE/monitor_exit" ]; then
         sleep 0.5;
         restore_row >&2
-        echo "Total Active: 0          "
+        STEP_JSON="$(generate_json)"
+        TOTAL_ACTIVE=$(echo "$STEP_JSON" | jq -r '.active')
+        MAX_ACTIVE=$(echo "$STEP_JSON" | jq -r '.max_active')
+        FIRST_ERROR_AT_ACTIVE=$(echo "$STEP_JSON" | jq -r '.first_error_at_active')
+        tput el >&2
+        echo "Total Active: $TOTAL_ACTIVE"
+        tput el >&2
+        echo "Max Active: $MAX_ACTIVE"
+        tput el >&2
+        echo "First Error: $FIRST_ERROR_AT_ACTIVE"
+        tput el >&2
         echo ""
 
-        print_table "$(generate_json)" 1;
+        print_table "$STEP_JSON" 1;
         break;
       fi
     done;
