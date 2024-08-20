@@ -315,13 +315,16 @@ function graceful_exit() {
   # Record the end time
   end_time=$(date +%s.%N)
   elapsed_time=$(echo "scale=0;$end_time - $start_time" | bc)
-  iterations_per_second=$(echo "scale=3;$USERS / $elapsed_time" | bc)
+  tests_elapsed_time=$(echo "scale=0;$end_time - ${tests_start_time:-${end_time}}" | bc)
+  iterations_per_second=$(echo "scale=3;$USERS / $tests_elapsed_time" | bc)
 
   touch "$STEPS_PIPE/monitor_exit"
   wait
 
   echo ""
-  echo "Script execution time: $elapsed_time seconds. Iterations per second: $iterations_per_second"
+  echo "Script execution time: $elapsed_time seconds."
+  echo "Tests execution time: $tests_elapsed_time seconds."
+  echo "Iterations per second: $iterations_per_second."
 }
 
 function woorricane_api() {
@@ -374,6 +377,8 @@ launch_monitor
 if [ -z "${WOORRICANE_DIR}" ]; then
 	WOORRICANE_DIR="$(pwd)"
 fi
+
+tests_start_time=$(date +%s.%N)
 
 export CURRENT_THREAD
 while true; do
