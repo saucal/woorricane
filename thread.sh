@@ -25,7 +25,9 @@ function run() {
 }
 
 get() {
+  mkdir -p "$STEPS_PIPE/statuses/$STEP"
   local DATA
+  local status_code
   DATA=$(curl -o "${LAST_REQ_FILE}" -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" -sSL -D "${LAST_REQ_RESPONSE_HEADERS}" \
     --connect-timeout 400 \
     --max-time 400 \
@@ -33,11 +35,14 @@ get() {
     --retry 0 "$@" 2>&1)
 
   HAS_ERR=$?
-  if [ $HAS_ERR -ne 0 ]; then
-    return $HAS_ERR;
+  if [ $HAS_ERR -eq 0 ]; then
+    DATA=$(echo "$DATA" | awk '/=> Send header,/{flag=1; next} /== Info:/{flag=0} flag' | sed '/^=> Send data,.*$/d' | sed 's/^[[:xdigit:]]*: //g')
+
+
+    status_code=$(cat "$LAST_REQ_RESPONSE_HEADERS" | head -n 1 | awk '{print $2}')
+  else
+    status_code="999"
   fi
-  
-  DATA=$(echo "$DATA" | awk '/=> Send header,/{flag=1; next} /== Info:/{flag=0} flag' | sed '/^=> Send data,.*$/d' | sed 's/^[[:xdigit:]]*: //g')
 
   {
     echo "${DATA}"
@@ -50,12 +55,11 @@ get() {
     cat "${LAST_REQ_FILE}"
     echo ""
   } > "${LAST_REQ_FULL}"
-
-  mkdir -p "$STEPS_PIPE/statuses/$STEP"
-  local status_code=$(cat "$LAST_REQ_RESPONSE_HEADERS" | head -n 1 | awk '{print $2}')
+  
   echo -n "0" >> "$STEPS_PIPE/statuses/$STEP/$status_code"
   
   cat "${LAST_REQ_FULL}"
+  return $HAS_ERR
 }
 
 function step_1() {
