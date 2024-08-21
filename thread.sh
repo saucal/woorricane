@@ -9,9 +9,11 @@ COOKIE_JAR=$(mktemp)
 set -o history -o histexpand
 
 LAST_REQ_FILE=$(mktemp)
+LAST_REQ_TRACE=$(mktemp)
 LAST_REQ_HEADERS=$(mktemp)
 LAST_REQ_RESPONSE_HEADERS=$(mktemp)
 LAST_REQ_FULL=$(mktemp)
+LAST_REQ_STDERR=$(mktemp)
 STEP=0
 
 function run() {
@@ -24,29 +26,48 @@ function run() {
   return "$RET_CODE"
 }
 
+get_time() {
+  local DATA
+  local key
+  DATA=$1
+  key=$2
+  {
+    echo "$DATA" | grep -oP "$key=\K[0-9.]+"
+  } 2> /dev/null
+}
+
 get() {
   mkdir -p "$STEPS_PIPE/statuses/$STEP"
+  mkdir -p "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP"
   local DATA
   local status_code
+
   DATA=$(curl -o "${LAST_REQ_FILE}" -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" -sSL -D "${LAST_REQ_RESPONSE_HEADERS}" \
     --resolve "$RESOLVED_IP" \
     --connect-timeout 400 \
     --max-time 400 \
-    --trace-ascii - \
-    --retry 0 "$@" 2>&1)
+    --write-out 'time_namelookup=%{time_namelookup}\ntime_connect=%{time_connect}\ntime_appconnect=%{time_appconnect}\ntime_pretransfer=%{time_pretransfer}\ntime_redirect=%{time_redirect}\ntime_starttransfer=%{time_starttransfer}\ntime_total=%{time_total}\n' \
+    --trace-ascii "${LAST_REQ_TRACE}" \
+    --retry 0 "$@" 2>"${LAST_REQ_STDERR}")
 
   HAS_ERR=$?
   if [ $HAS_ERR -eq 0 ]; then
-    DATA=$(echo "$DATA" | awk '/=> Send header,/{flag=1; next} /== Info:/{flag=0} flag' | sed '/^=> Send data,.*$/d' | sed 's/^[[:xdigit:]]*: //g')
-
-
     status_code=$(cat "$LAST_REQ_RESPONSE_HEADERS" | head -n 1 | awk '{print $2}')
   else
     status_code="999"
   fi
 
+  # use grep to find times in $DATA
+  get_time "$DATA" 'time_namelookup' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_namelookup"
+  get_time "$DATA" 'time_connect' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_connect"
+  get_time "$DATA" 'time_appconnect' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_appconnect"
+  get_time "$DATA" 'time_pretransfer' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_pretransfer"
+  get_time "$DATA" 'time_redirect' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_redirect"
+  get_time "$DATA" 'time_starttransfer' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_starttransfer"
+  get_time "$DATA" 'time_total' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_total"
+
   {
-    echo "${DATA}"
+    cat "${LAST_REQ_TRACE}" | awk '/=> Send header,/{flag=1; next} /== Info:/{flag=0} flag' | sed '/^=> Send data,.*$/d' | sed 's/^[[:xdigit:]]*: //g'
     echo ""
   } > "${LAST_REQ_HEADERS}"
 
