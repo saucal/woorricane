@@ -65,6 +65,11 @@ get() {
 function step_1() {
   # home
   get "${HOME_URL}"
+
+  HAS_ERR="$?"
+  if [ $HAS_ERR -ne 0 ]; then
+    return $HAS_ERR;
+  fi
 }
 
 function step_2() {
@@ -75,6 +80,11 @@ function step_2() {
     -H "Referer: ${HOME_URL}" \
     --data-raw "product_id=${PRODUCT_ID}&quantity=${QTY}"
 
+  HAS_ERR="$?"
+  if [ $HAS_ERR -ne 0 ]; then
+    return $HAS_ERR;
+  fi
+
   HAS_ERR=$(jq '.error' < "${LAST_REQ_FILE}")
   if [ "$HAS_ERR" != "null" ]; then
     return 1;
@@ -84,12 +94,22 @@ function step_2() {
 function step_3() {
   # cart page
   get "${CART_URL}"
+
+  HAS_ERR="$?"
+  if [ $HAS_ERR -ne 0 ]; then
+    return $HAS_ERR;
+  fi
 }
 
 function step_4() {
   # get nonces on the checkout page
   get "${CHECKOUT_URL}" \
     -H "Referer: ${CART_URL}"
+
+  HAS_ERR="$?"
+  if [ $HAS_ERR -ne 0 ]; then
+    return $HAS_ERR;
+  fi
 
   CHECKOUT_NONCE=$(grep -oP ' name="woocommerce-process-checkout-nonce" value="\K.+?(?=")' "${LAST_REQ_FILE}")
   CHECKOUT_REFERER=$(grep -oP ' name="_wp_http_referer" value="\K.+?(?=")' "${LAST_REQ_FILE}")
@@ -105,7 +125,12 @@ function step_5() {
     --data-urlencode "woocommerce-process-checkout-nonce=${CHECKOUT_NONCE}" \
     --data-urlencode "_wp_http_referer=${CHECKOUT_REFERER}" \
     --data-raw "billing_first_name=Mai+K&billing_last_name=Love&billing_company=&billing_country=US&billing_address_1=4876++Hillcrest+Circle&billing_address_2=&billing_city=Crystal&billing_state=MN&billing_postcode=55429&billing_phone=218-404-4099&billing_email=bm0kig52zgp%40temporary-mail.net&order_comments=&payment_method=dummy"
-  
+
+  HAS_ERR="$?"
+  if [ $HAS_ERR -ne 0 ]; then
+    return $HAS_ERR;
+  fi
+
   HAS_ERR=$(jq -r '.result' < "${LAST_REQ_FILE}")
   if [ "$HAS_ERR" == "failure" ]; then
     return 1;
