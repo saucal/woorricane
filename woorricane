@@ -144,6 +144,8 @@ function echo() {
 function generate_json() {
   local STEP
 
+  local GENERATE_TIMES="${1:-0}"
+
   local STATUS_CODE
   local STATUS_FILE
   local STATUS_AMOUNT
@@ -192,21 +194,14 @@ function generate_json() {
         done
       fi
 
-      # find files with the glob $STEPS_PIPE/times/*/$STEP/time_total
-      # and concatenate them together
-      STEP_TIMES=""
-      {
-        if [ -n "$(ls -A "$STEPS_PIPE/times")" ]; then
-          for THREAD_DIR in $STEPS_PIPE/times/*; do
-            if [ -f "$THREAD_DIR/$STEP/time_total" ]; then
-              STEP_TIMES="${STRING}$(cat "$THREAD_DIR/$STEP/time_total")"
-            fi
-          done
+      TIMES_JSON='{"avg":"...","max":"...","min":"..."}'
+      if [ "$GENERATE_TIMES" -eq 1 ]; then
+        # find files with the glob $STEPS_PIPE/times/*/$STEP/time_total
+        # and concatenate them together
+        STEP_TIMES=$(find "$STEPS_PIPE/times" -mindepth 1 -maxdepth 1 -type d -exec test -f {}/$STEP/time_total \; -a -exec cat {}/$STEP/time_total \;)
+        if [ -n "$STEP_TIMES" ]; then
+          TIMES_JSON=$(echo "$STEP_TIMES" | awk '{if(min==""){min=max=$1}; if($1>max) {max=$1}; if($1<min) {min=$1}; total+=$1; count+=1} END {print "{\"avg\":" total/count ",\"max\":" max ",\"min\":" min "}"}')
         fi
-      }
-      TIMES_JSON='{"avg":0,"max":0,"min":0}'
-      if [ -n "$STEP_TIMES" ]; then
-        TIMES_JSON=$(echo "$STEP_TIMES" | awk '{if(min==""){min=max=$1}; if($1>max) {max=$1}; if($1<min) {min=$1}; total+=$1; count+=1} END {print "{\"avg\":" total/count ",\"max\":" max ",\"min\":" min "}"}')
       fi
 
       STEP_ACTIVE=$(step_active "$STEP")
@@ -314,7 +309,7 @@ function launch_monitor() {
       if [ -f "$STEPS_PIPE/monitor_exit" ]; then
         sleep 0.5;
         restore_row >&2
-        STEP_JSON="$(generate_json)"
+        STEP_JSON="$(generate_json 1)"
         TOTAL_ACTIVE=$(echo "$STEP_JSON" | jq -r '.active')
         MAX_ACTIVE=$(echo "$STEP_JSON" | jq -r '.max_active')
         FIRST_ERROR_AT_ACTIVE=$(echo "$STEP_JSON" | jq -r '.first_error_at_active')
