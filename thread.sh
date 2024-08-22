@@ -29,6 +29,7 @@ get() {
   local DATA
   local status_code
   DATA=$(curl -o "${LAST_REQ_FILE}" -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" -sSL -D "${LAST_REQ_RESPONSE_HEADERS}" \
+    --resolve "$RESOLVED_IP" \
     --connect-timeout 400 \
     --max-time 400 \
     --trace-ascii - \
