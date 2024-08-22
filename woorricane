@@ -140,6 +140,9 @@ function echo() {
   command echo "$@"
   rows_printed=$((rows_printed + 1))
 }
+function db() {
+  sqlite3 "${WOORRICANE_DIR}/test.db" <<< "$1"
+}
 
 function generate_json() {
   local STEP
@@ -172,45 +175,43 @@ function generate_json() {
 
   local HAS_ERROR=0
 
-  STEP_JSON="{\"steps\":{}, \"active\": 0, \"max_active\": 0, \"first_error_at_active\": 0}"
-  if [ -n "$(ls -A "$STEPS_PIPE/started")" ]; then
-    for entry in "$STEPS_PIPE/started"/*; do
-      STEP="$(basename "$entry")"
+  STEP_JSON="{\"steps\":{}, \"active\": 0, \"max_active\": 0, \"first_error_at_active\": 0, \"successful\": 0}"
 
-      STATUS_JSON="{}"
-      if [ -d "$STEPS_PIPE/statuses/$STEP" ] && [ -n "$(ls -A "$STEPS_PIPE/statuses/$STEP")" ]; then
-        for STATUS_FILE in "$STEPS_PIPE/statuses/$STEP"/*; do
-          STATUS_CODE="$(basename "$STATUS_FILE")"
-          STATUS_AMOUNT=$(wc -c < "$STATUS_FILE")
-          STATUS_AMOUNT=$((STATUS_AMOUNT))
-          STATUS_JSON=$(echo "$STATUS_JSON" | jq -rc ". += {\"$STATUS_CODE\": $STATUS_AMOUNT}")
-          if [ "$STATUS_CODE" -ne "200" ]; then
-            HAS_ERROR=1
-          else
-            if [ "$STEP" -eq "5" ]; then
-              SUCCESSFUL_CHECKOUTS="$STATUS_AMOUNT"
-            fi
-          fi
-        done
+  TOTAL_ACTIVE=$(db "SELECT COUNT(*) FROM woorricane WHERE status IS NULL;")
+  SUCCESSFUL_CHECKOUTS="$(db "SELECT COUNT(*) FROM woorricane WHERE step = 5 AND http_status = 200;")"
+
+  for i in $(db "SELECT DISTINCT step FROM woorricane ORDER BY step ASC;"); do
+    if [ -z "$i" ]; then
+      continue
+    fi
+    STEP="$i"
+    STEP_ACTIVE="$(db "SELECT COUNT(*) FROM woorricane WHERE step = $i AND status IS NULL;")"
+    STEP_MAX=$(step_max "$STEP" "$STEP_ACTIVE")
+    STATUS_JSON="{}"
+    for line in $(db "SELECT http_status,COUNT(*) FROM woorricane WHERE step = $i AND status IS NOT NULL GROUP BY http_status ORDER BY step ASC;"); do
+      # split the result into an object of key value pairs
+      if [ -z "$line" ]; then
+        continue
       fi
-
-      TIMES_JSON='{"avg":"...","max":"...","min":"..."}'
-      if [ "$GENERATE_TIMES" -eq 1 ]; then
-        # find files with the glob $STEPS_PIPE/times/*/$STEP/time_total
-        # and concatenate them together
-        STEP_TIMES=$(find "$STEPS_PIPE/times" -mindepth 1 -maxdepth 1 -type d -exec test -f {}/$STEP/time_total \; -a -exec cat {}/$STEP/time_total \;)
-        if [ -n "$STEP_TIMES" ]; then
-          TIMES_JSON=$(echo "$STEP_TIMES" | awk '{if(min==""){min=max=$1}; if($1>max) {max=$1}; if($1<min) {min=$1}; total+=$1; count+=1} END {print "{\"avg\":" total/count ",\"max\":" max ",\"min\":" min "}"}')
-        fi
-      fi
-
-      STEP_ACTIVE=$(step_active "$STEP")
-      STEP_MAX=$(step_max "$STEP" "$STEP_ACTIVE")
-      TOTAL_ACTIVE=$((TOTAL_ACTIVE + STEP_ACTIVE))
-
-      STEP_JSON=$(echo "$STEP_JSON" | jq --arg step "$STEP" --argjson max "$STEP_MAX" --argjson active "$STEP_ACTIVE" --argjson total_active "$TOTAL_ACTIVE" --argjson statuses "$STATUS_JSON" --argjson times "$TIMES_JSON" -rc '.active = ($total_active) | .steps += {($step): {"active": $active,"max-concurrent": $max, "statuses": ($statuses), "times": ($times)}}')
+      OLDIFS=$IFS
+      IFS='|' read -r -a row <<< "$line"
+      IFS=$OLDIFS
+      STATUS_JSON=$(echo "$STATUS_JSON" | jq -rc ". += {\"${row[0]}\": ${row[1]}}")
+      #echo "HTTP Status ${row[0]}: ${row[1]}"
     done
-  fi
+
+
+    TIMES_JSON='{"avg":"...","max":"...","min":"..."}'
+    for line in $(db "SELECT http_status,COUNT(*) FROM woorricane WHERE step = $i AND status IS NOT NULL GROUP BY http_status ORDER BY step ASC;"); do
+      # split the result into an object of key value pairs
+      OLDIFS=$IFS
+      IFS='|' read -r -a row <<< "$(db "SELECT IFNULL(MIN(time_total),0), IFNULL(MAX(time_total),0), IFNULL(AVG(time_total),0) FROM woorricane WHERE step = $i AND status IS NOT NULL;")"
+      IFS=$OLDIFS
+      TIMES_JSON="{\"avg\":${row[2]},\"max\":${row[1]},\"min\":${row[0]}}"
+    done
+
+    STEP_JSON=$(echo "$STEP_JSON" | jq --arg step "$STEP" --argjson max "$STEP_MAX" --argjson active "$STEP_ACTIVE" --argjson total_active "$TOTAL_ACTIVE" --argjson statuses "$STATUS_JSON" --argjson times "$TIMES_JSON" -rc '.active = ($total_active) | .steps += {($step): {"active": $active,"max-concurrent": $max, "statuses": ($statuses), "times": ($times)}}')
+  done
 
   if [ $TOTAL_ACTIVE -gt $MAX_ACTIVE ]; then
     echo $TOTAL_ACTIVE > "$STEPS_PIPE/max_active"
@@ -376,6 +377,35 @@ trap "graceful_exit" EXIT
 # Record the start time
 start_time=$(date +%s.%N)
 
+export WOORRICANE_DIR
+if [ -z "${WOORRICANE_DIR}" ]; then
+	WOORRICANE_DIR="$(pwd)"
+fi
+
+rm -rf "${WOORRICANE_DIR}/test.db" "${WOORRICANE_DIR}/test.db-"*
+sqlite3 "${WOORRICANE_DIR}/test.db" <<EOF > /dev/null
+PRAGMA journal_mode = WAL;
+CREATE TABLE IF NOT EXISTS woorricane (
+  thread INTEGER,
+  step INTEGER,
+  status INTEGER,
+  http_status INTEGER,
+  time_namelookup REAL,
+  time_connect REAL,
+  time_appconnect REAL,
+  time_pretransfer REAL,
+  time_redirect REAL,
+  time_starttransfer REAL,
+  time_total REAL,
+  PRIMARY KEY (thread, step)
+);
+
+CREATE TABLE IF NOT EXISTS metrics (
+  metric TEXT PRIMARY KEY,
+  value TEXT
+);
+EOF
+
 LOG_PATH="$PWD/woorricane-logs"
 
 echo "--- Initializing"
@@ -414,11 +444,6 @@ woorricane_api "prepare_product" "$PRODUCT_ID" || exit 1
 
 echo "--- Launching process"
 launch_monitor
-
-export WOORRICANE_DIR
-if [ -z "${WOORRICANE_DIR}" ]; then
-	WOORRICANE_DIR="$(pwd)"
-fi
 
 tests_start_time=$(date +%s.%N)
 

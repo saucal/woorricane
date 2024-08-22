@@ -16,13 +16,17 @@ LAST_REQ_FULL=$(mktemp)
 LAST_REQ_STDERR=$(mktemp)
 STEP=0
 
+function db() {
+  sqlite3 "${WOORRICANE_DIR}/test.db" <<< "$1"
+}
+
 function run() {
   STEP=$(( STEP + 1 ))
 
-  echo -n "0" >> "$STEPS_PIPE/started/$STEP"
+  db "INSERT INTO woorricane (thread, step) VALUES ($CURRENT_THREAD, $STEP)"
   "$1" > "$LOG_PATH/curl-step-$STEP.log"
   RET_CODE="$?"
-  echo -n "0" >> "$STEPS_PIPE/finished/$STEP"
+  db "UPDATE woorricane SET status=$RET_CODE WHERE thread=$CURRENT_THREAD AND step=$STEP"
   return "$RET_CODE"
 }
 
@@ -37,8 +41,6 @@ get_time() {
 }
 
 get() {
-  mkdir -p "$STEPS_PIPE/statuses/$STEP"
-  mkdir -p "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP"
   local DATA
   local status_code
 
@@ -46,7 +48,7 @@ get() {
     --resolve "$RESOLVED_IP" \
     --connect-timeout 400 \
     --max-time 400 \
-    --write-out 'time_namelookup=%{time_namelookup}\ntime_connect=%{time_connect}\ntime_appconnect=%{time_appconnect}\ntime_pretransfer=%{time_pretransfer}\ntime_redirect=%{time_redirect}\ntime_starttransfer=%{time_starttransfer}\ntime_total=%{time_total}\n' \
+    --write-out 'time_namelookup=%{time_namelookup}, time_connect=%{time_connect}, time_appconnect=%{time_appconnect}, time_pretransfer=%{time_pretransfer}, time_redirect=%{time_redirect}, time_starttransfer=%{time_starttransfer}, time_total=%{time_total}' \
     --trace-ascii "${LAST_REQ_TRACE}" \
     --retry 0 "$@" 2>"${LAST_REQ_STDERR}")
 
@@ -57,14 +59,7 @@ get() {
     status_code="999"
   fi
 
-  # use grep to find times in $DATA
-  get_time "$DATA" 'time_namelookup' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_namelookup"
-  get_time "$DATA" 'time_connect' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_connect"
-  get_time "$DATA" 'time_appconnect' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_appconnect"
-  get_time "$DATA" 'time_pretransfer' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_pretransfer"
-  get_time "$DATA" 'time_redirect' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_redirect"
-  get_time "$DATA" 'time_starttransfer' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_starttransfer"
-  get_time "$DATA" 'time_total' >> "$STEPS_PIPE/times/$CURRENT_THREAD/$STEP/time_total"
+  db "UPDATE woorricane SET http_status=$status_code, $DATA WHERE thread=$CURRENT_THREAD AND step=$STEP"
 
   {
     cat "${LAST_REQ_TRACE}" | awk '/=> Send header,/{flag=1; next} /== Info:/{flag=0} flag' | sed '/^=> Send data,.*$/d' | sed 's/^[[:xdigit:]]*: //g'
@@ -77,8 +72,6 @@ get() {
     cat "${LAST_REQ_FILE}"
     echo ""
   } > "${LAST_REQ_FULL}"
-  
-  echo -n "0" >> "$STEPS_PIPE/statuses/$STEP/$status_code"
   
   cat "${LAST_REQ_FULL}"
   return $HAS_ERR
