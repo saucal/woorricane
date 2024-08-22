@@ -141,7 +141,7 @@ function echo() {
   rows_printed=$((rows_printed + 1))
 }
 function db() {
-  sqlite3 "${WOORRICANE_DIR}/test.db" <<< "$1"
+  sqlite3 "${WOORRICANE_DIR}/test.db" -cmd '.timeout 5000' <<< "$1"
 }
 
 function generate_json() {

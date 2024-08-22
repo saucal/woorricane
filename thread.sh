@@ -17,7 +17,7 @@ LAST_REQ_STDERR=$(mktemp)
 STEP=0
 
 function db() {
-  sqlite3 "${WOORRICANE_DIR}/test.db" <<< "$1"
+  sqlite3 "${WOORRICANE_DIR}/test.db" -cmd '.timeout 5000' <<< "$1"
 }
 
 function run() {
