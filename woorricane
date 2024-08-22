@@ -282,9 +282,6 @@ function monitor() {
   draw_table
 }
 
-# Record the start time
-start_time=$(date +%s.%N)
-
 function launch_monitor() {
   clear >&2
   echo "Ramp up: $step minutes"
@@ -333,13 +330,14 @@ function kill_childs() {
 
 function graceful_exit() {
   # Record the end time
+  end_time=$(date +%s.%N)
+
   touch "$STEPS_PIPE/monitor_exit"
   wait
 
   STEP_JSON="$(generate_json)"
   SUCCESSFUL_CHECKOUTS=$(echo "$STEP_JSON" | jq -r '.successful')
 
-  end_time=$(date +%s.%N)
   elapsed_time=$(echo "scale=0;$end_time - $start_time" | bc)
   tests_elapsed_time=$(echo "scale=0;$end_time - ${tests_start_time:-${end_time}}" | bc)
   iterations_per_second=$(echo "scale=3;$SUCCESSFUL_CHECKOUTS / $tests_elapsed_time" | bc)
@@ -360,6 +358,9 @@ function woorricane_api() {
 trap "kill_childs" SIGINT
 
 trap "graceful_exit" EXIT
+
+# Record the start time
+start_time=$(date +%s.%N)
 
 LOG_PATH="$PWD/woorricane-logs"
 
