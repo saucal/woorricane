@@ -402,6 +402,8 @@ USERS="0"
 RESOLVED_IP=$(curl -sSL --connect-timeout 400 --max-time 400 --retry 0 "$HOME_URL" --write-out '%{url.host}:%{remote_port}:%{remote_ip}' --output /dev/null)
 export RESOLVED_IP
 
+echo "--- Resolved IP: $RESOLVED_IP"
+
 echo "--- Cleaning up"
 rm -rf "$LOG_PATH"
 rm -f curl-step-*.log
