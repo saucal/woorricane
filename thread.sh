@@ -55,6 +55,19 @@ get() {
     status_code=$(cat "$LAST_REQ_RESPONSE_HEADERS" | head -n 1 | awk '{print $2}')
   else
     status_code="999"
+    {
+      echo "Error: $HAS_ERR"
+      echo "Status Code: $status_code"
+      echo ""
+      echo ""
+      cat "$LAST_REQ_STDERR"
+      echo ""
+      echo ""
+      cat "${LAST_REQ_TRACE}"
+      echo ""
+      echo ""
+      echo "$DATA"
+    } >> "$LAST_REQ_RESPONSE_HEADERS"
   fi
 
   # use grep to find times in $DATA
