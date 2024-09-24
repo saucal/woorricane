@@ -42,10 +42,13 @@ get() {
   local DATA
   local status_code
 
+  PARAMS=( --connect-timeout 400 --max-time 400 )
+  if [ -n "$RESOLVED_IP" ]; then
+    PARAMS+=( --resolve "$RESOLVED_IP" )
+  fi
+
   DATA=$(curl -o "${LAST_REQ_FILE}" -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" -sSL -D "${LAST_REQ_RESPONSE_HEADERS}" \
-    --resolve "$RESOLVED_IP" \
-    --connect-timeout 400 \
-    --max-time 400 \
+    "${PARAMS[@]}" \
     --write-out 'time_namelookup=%{time_namelookup}\ntime_connect=%{time_connect}\ntime_appconnect=%{time_appconnect}\ntime_pretransfer=%{time_pretransfer}\ntime_redirect=%{time_redirect}\ntime_starttransfer=%{time_starttransfer}\ntime_total=%{time_total}\n' \
     --trace-ascii "${LAST_REQ_TRACE}" \
     --retry 0 "$@" 2>"${LAST_REQ_STDERR}")

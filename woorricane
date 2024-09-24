@@ -362,10 +362,12 @@ function graceful_exit() {
 }
 
 function woorricane_api() {
+  PARAMS=( --connect-timeout 400 --max-time 400 )
+  if [ -n "$RESOLVED_IP" ]; then
+    PARAMS+=( --resolve "$RESOLVED_IP" )
+  fi
   curl -o /dev/null -sSL \
-    --connect-timeout 400 \
-    --max-time 400 \
-    --resolve "$RESOLVED_IP" \
+    "${PARAMS[@]}" \
     --retry 0 "$HOME_URL/?woorricane_control&action=$1&$1=$2"
 }
 
@@ -399,10 +401,12 @@ fi
 MAX_USERS="${max}"
 USERS="0"
 
-RESOLVED_IP=$(curl -sSL --connect-timeout 400 --max-time 400 --retry 0 "$HOME_URL" --write-out '%{url.host}:%{remote_port}:%{remote_ip}' --output /dev/null)
-export RESOLVED_IP
+if [ -z "${DO_NOT_RESOLVE}" ]; then
+	RESOLVED_IP=$(curl -sSL --connect-timeout 400 --max-time 400 --retry 0 "$HOME_URL" --write-out '%{url.host}:%{remote_port}:%{remote_ip}' --output /dev/null)
+	export RESOLVED_IP
 
-echo "--- Resolved IP: $RESOLVED_IP"
+	echo "--- Resolved IP: $RESOLVED_IP"
+fi
 
 echo "--- Cleaning up"
 rm -rf "$LOG_PATH"
