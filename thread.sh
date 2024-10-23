@@ -42,7 +42,7 @@ get() {
   local DATA
   local status_code
 
-  PARAMS=( --connect-timeout 400 --max-time 400 )
+  PARAMS=( --connect-timeout 400 --max-time 400 -H "User-Agent: Saucal-Woorricane/1.3" )
   if [ -n "$RESOLVED_IP" ]; then
     PARAMS+=( --resolve "$RESOLVED_IP" )
   fi
