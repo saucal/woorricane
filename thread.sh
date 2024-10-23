@@ -97,6 +97,9 @@ get() {
   echo -n "0" >> "$STEPS_PIPE/statuses/$STEP/$status_code"
   
   cat "${LAST_REQ_FULL}"
+  if [ "$status_code" != "200" ]; then
+	return 1
+  fi
   return $HAS_ERR
 }
 
