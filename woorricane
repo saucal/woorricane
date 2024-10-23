@@ -394,8 +394,8 @@ if [ "$step" -eq "0" ]; then
   SLEEP="0"
   rate="$max"
 else
-  SLEEP="$(printf '%.5f\n' "$(echo "scale=5; (${step} * 60) / ${max}" | bc )")"
-  rate="$(printf '%d\n' "$(echo "1 / ${SLEEP}" | bc )")"
+  SLEEP="$(php -r 'echo number_format($argv[1], 5, ".", "") . PHP_EOL;' "$(echo "scale=5; (${step} * 60) / ${max}" | bc )")"
+  rate="$(php -r 'echo number_format($argv[1], 0, ".", "") . PHP_EOL;' "$(echo "1 / ${SLEEP}" | bc )")"
 fi
 
 MAX_USERS="${max}"
